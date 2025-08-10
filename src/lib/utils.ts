@@ -37,6 +37,21 @@ export function formatPercentage(
 }
 
 /**
+ * Format decimal as percentage (for values that are already decimal like 0.1882 = 18.82%)
+ */
+export function formatDecimalAsPercentage(
+  value: number,
+  decimals: number = 2,
+  locale: string = 'en-GB'
+): string {
+  return new Intl.NumberFormat(locale, {
+    style: 'percent',
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  }).format(value);
+}
+
+/**
  * Format date values
  */
 export function formatDate(

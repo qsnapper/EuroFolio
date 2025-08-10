@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     }
 
     // First, search in our local database for cached assets
-    const supabase = createSupabaseServerClient();
+    const supabase = await createSupabaseServerClient();
     const { data: cachedAssets, error: dbError } = await supabase
       .from('assets')
       .select('*')
@@ -41,12 +41,15 @@ export async function GET(request: NextRequest) {
           // Check if we already have this asset in our database
           const { data: existingAsset } = await supabase
             .from('assets')
-            .select('id')
+            .select('*')
             .eq('symbol', asset.Code)
             .eq('exchange', asset.Exchange)
             .single();
 
-          if (!existingAsset) {
+          if (existingAsset) {
+            // Add existing asset to results
+            apiResults.push(existingAsset);
+          } else {
             // Insert new asset into database
             const { data: newAsset, error: insertError } = await supabase
               .from('assets')
@@ -75,14 +78,44 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const allResults = [...cachedResults, ...apiResults];
+    // Combine results and remove duplicates based on symbol + exchange
+    const seenAssets = new Set();
+    const uniqueResults = [];
+    
+    // Add cached results first
+    for (const asset of cachedResults) {
+      const key = `${asset.symbol}-${asset.exchange}`;
+      if (!seenAssets.has(key)) {
+        seenAssets.add(key);
+        uniqueResults.push(asset);
+      }
+    }
+    
+    // Add API results if not already seen
+    for (const asset of apiResults) {
+      const key = `${asset.symbol}-${asset.exchange}`;
+      if (!seenAssets.has(key)) {
+        seenAssets.add(key);
+        uniqueResults.push(asset);
+      }
+    }
 
-    return NextResponse.json({
-      data: allResults.slice(0, 20), // Limit to 20 results
+    const finalResults = uniqueResults.slice(0, 20);
+    console.log('Final API response:', JSON.stringify({
+      data: finalResults,
       source: {
         cached: cachedResults.length,
         api: apiResults.length,
-        total: allResults.length
+        total: uniqueResults.length
+      }
+    }, null, 2));
+
+    return NextResponse.json({
+      data: finalResults, // Limit to 20 results
+      source: {
+        cached: cachedResults.length,
+        api: apiResults.length,
+        total: uniqueResults.length
       }
     });
 

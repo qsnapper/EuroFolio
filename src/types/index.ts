@@ -48,6 +48,8 @@ export interface Portfolio {
   is_benchmark: boolean;
   created_at: string;
   updated_at: string;
+  // Joined data from portfolio_allocations
+  portfolio_allocations?: PortfolioAllocationWithAsset[];
 }
 
 export interface PortfolioAllocation {
@@ -56,6 +58,10 @@ export interface PortfolioAllocation {
   asset_id: string;
   percentage: number;
   created_at: string;
+}
+
+export interface PortfolioAllocationWithAsset extends PortfolioAllocation {
+  assets?: Asset;
 }
 
 export interface PriceData {

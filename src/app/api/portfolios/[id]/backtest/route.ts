@@ -9,7 +9,7 @@ export async function POST(
 ) {
   try {
     const { id: portfolioId } = await params;
-    const supabase = createSupabaseServerClient();
+    const supabase = await createSupabaseServerClient();
 
     // Check authentication
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -107,8 +107,68 @@ export async function POST(
         // Try to fetch from external API if no cached data
         const asset = portfolio.portfolio_allocations.find((a: any) => a.asset_id === assetId)?.assets;
         if (asset) {
-          console.warn(`No price data found for asset ${asset.symbol} (${assetId}). External API integration needed.`);
-          // TODO: Integrate with EODHD API to fetch missing data
+          console.log(`Fetching price data from EODHD API for ${asset.symbol}.${asset.exchange}...`);
+          try {
+            // Import EODHD client
+            const { eodhd } = await import('@/lib/eodhd/client');
+            
+            // Fetch historical prices from EODHD
+            const historicalPrices = await eodhd.getHistoricalPrices(
+              asset.symbol,
+              asset.exchange,
+              startDate,
+              endDate
+            );
+            
+            if (historicalPrices && historicalPrices.length > 0) {
+              console.log(`Fetched ${historicalPrices.length} price points for ${asset.symbol}`);
+              
+              // Store in database for future use
+              const priceInserts = historicalPrices.map(price => ({
+                asset_id: assetId,
+                date: price.date,
+                open_price: price.open,
+                high_price: price.high,
+                low_price: price.low,
+                close_price: price.close,
+                adjusted_close: price.adjusted_close,
+                volume: price.volume
+              }));
+              
+              // Bulk insert price data
+              const { error: insertError } = await supabase
+                .from('price_data')
+                .upsert(priceInserts, { 
+                  onConflict: 'asset_id,date',
+                  ignoreDuplicates: false 
+                });
+              
+              if (insertError) {
+                console.error('Error storing price data:', insertError);
+              } else {
+                console.log(`Stored ${priceInserts.length} price points for ${asset.symbol}`);
+              }
+              
+              // Convert to our PriceData format and add to map
+              const convertedPrices = historicalPrices.map(price => ({
+                asset_id: assetId,
+                date: price.date,
+                close_price: price.close,
+                adjusted_close: price.adjusted_close || price.close
+              }));
+              
+              console.log(`Converted ${convertedPrices.length} prices for asset ${assetId}`);
+              if (convertedPrices.length > 0) {
+                console.log(`Sample prices: ${convertedPrices[0].close_price} -> ${convertedPrices[convertedPrices.length-1].close_price}`);
+              }
+              
+              priceDataMap[assetId] = convertedPrices;
+            } else {
+              console.warn(`No historical data available for ${asset.symbol}.${asset.exchange}`);
+            }
+          } catch (apiError) {
+            console.error(`Error fetching price data for ${asset.symbol}:`, apiError);
+          }
         }
         continue;
       }
@@ -119,6 +179,15 @@ export async function POST(
     // Check if we have sufficient price data
     const assetsWithData = Object.keys(priceDataMap).length;
     const totalAssets = portfolio.portfolio_allocations.length;
+    
+    console.log('Price data summary:');
+    Object.entries(priceDataMap).forEach(([assetId, prices]) => {
+      console.log(`Asset ${assetId}: ${prices.length} price points`);
+      if (prices.length > 0) {
+        console.log(`  First price: ${prices[0].date} = ${prices[0].close_price}`);
+        console.log(`  Last price: ${prices[prices.length - 1].date} = ${prices[prices.length - 1].close_price}`);
+      }
+    });
     
     if (assetsWithData === 0) {
       return NextResponse.json(
@@ -158,11 +227,23 @@ export async function POST(
       rebalanceFrequency: rebalanceFrequency as any
     };
 
+    console.log('Running backtest with:');
+    console.log('- Portfolio allocations:', normalizedAllocations.length);
+    console.log('- Assets with price data:', assetsWithData);
+    console.log('- Date range:', startDate, 'to', endDate);
+    console.log('- Initial investment:', initialInvestment);
+    
     const backtestResult = await backtestEngine.runBacktest(
       normalizedAllocations,
       priceDataMap,
       backtestParams
     );
+    
+    console.log('Backtest result:', {
+      finalValue: backtestResult.finalValue,
+      totalReturn: backtestResult.totalReturn,
+      performanceDataLength: backtestResult.performanceData.length
+    });
 
     // Store backtest result in database
     const { data: savedResult, error: saveError } = await supabase
@@ -226,7 +307,7 @@ export async function GET(
 ) {
   try {
     const { id: portfolioId } = await params;
-    const supabase = createSupabaseServerClient();
+    const supabase = await createSupabaseServerClient();
 
     // Check authentication
     const { data: { user }, error: authError } = await supabase.auth.getUser();

@@ -21,7 +21,10 @@ async function searchAssets(query: string): Promise<AssetSearchResponse> {
     throw new Error('Failed to search assets');
   }
 
-  return response.json();
+  const data = await response.json();
+  console.log('Frontend received data:', JSON.stringify(data, null, 2));
+  
+  return data;
 }
 
 export function useAssetSearch(query: string, enabled: boolean = true) {

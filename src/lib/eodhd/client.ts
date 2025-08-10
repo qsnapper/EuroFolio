@@ -1,6 +1,9 @@
 /**
  * EODHD API client for market data
  * https://eodhd.com/financial-apis/
+ * 
+ * Uses real EODHD API for asset search and historical price data.
+ * Focuses on European markets and popular asset types (ETF, Stocks, etc.)
  */
 
 import { env } from '@/lib/env';
@@ -82,13 +85,18 @@ class EODHDClient {
     });
 
     try {
+      console.log('Making EODHD API request to:', url.toString());
       const response = await fetch(url.toString());
       
       if (!response.ok) {
+        console.error(`EODHD API error: ${response.status} ${response.statusText}`);
+        const errorText = await response.text();
+        console.error('Error response body:', errorText);
         throw new Error(`EODHD API error: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json();
+      console.log('EODHD API raw response:', JSON.stringify(data, null, 2));
       this.incrementCallCount();
       
       return data;
@@ -103,27 +111,89 @@ class EODHDClient {
    */
   async searchAssets(query: string): Promise<EODHDSearchResult[]> {
     try {
-      const data = await this.makeRequest<EODHDSearchResult[]>('/search', {
-        s: query.toUpperCase()
-      });
-
-      // Filter for European exchanges and relevant asset types
-      return data.filter(asset => {
-        const europeanExchanges = [
-          'XETRA', 'LSE', 'EPA', 'BIT', 'AMS', 'SWX', 'OSL', 'CPH', 
-          'HEL', 'ICE', 'WSE', 'BVLP', 'BIST', 'BSE', 'BUD', 'RIS',
-          'F', 'DU', 'STU', 'HAM', 'BE', 'MU', 'L'
-        ];
+      console.log(`Searching for assets with query: ${query}`);
+      
+      // Try direct search with the query (could be symbol, ISIN, or name)
+      const data = await this.makeRequest<EODHDSearchResult[]>(`/search/${query.toUpperCase()}`);
+      
+      console.log('Data is array:', Array.isArray(data));
+      console.log('Data length:', data?.length);
+      
+      if (data && Array.isArray(data)) {
+        const filtered = this.filterEuropeanAssets(data, query);
+        console.log('Filtered results:', JSON.stringify(filtered, null, 2));
+        return filtered;
+      }
+      
+      // If direct search fails or returns non-array, try searching major European exchanges
+      const exchanges = ['LSE', 'XETRA', 'AMS', 'EPA']; // Major European exchanges
+      const allResults: EODHDSearchResult[] = [];
+      
+      for (const exchange of exchanges) {
+        try {
+          const exchangeData = await this.makeRequest<EODHDSearchResult[]>(`/exchange-symbol-list/${exchange}`);
+          if (exchangeData && Array.isArray(exchangeData)) {
+            // Filter by query within exchange data
+            const filtered = exchangeData.filter(asset => 
+              asset.Name?.toLowerCase().includes(query.toLowerCase()) ||
+              asset.Code?.toLowerCase().includes(query.toLowerCase()) ||
+              asset.ISIN?.toLowerCase().includes(query.toLowerCase())
+            );
+            allResults.push(...filtered);
+          }
+        } catch (exchangeError) {
+          console.warn(`Search failed for exchange ${exchange}:`, exchangeError);
+          continue;
+        }
         
-        const relevantTypes = ['ETF', 'Common Stock', 'Fund', 'Index'];
-        
-        return europeanExchanges.includes(asset.Exchange) && 
-               relevantTypes.includes(asset.Type);
-      });
+        // Limit results to avoid too many API calls
+        if (allResults.length >= 20) break;
+      }
+      
+      return this.filterEuropeanAssets(allResults, query).slice(0, 10);
+      
     } catch (error) {
       console.error('Asset search failed:', error);
       return [];
     }
+  }
+
+  private filterEuropeanAssets(data: EODHDSearchResult[], query: string): EODHDSearchResult[] {
+    console.log('Starting filtering with', data.length, 'assets');
+    
+    const europeanExchanges = [
+      'XETRA', 'LSE', 'EPA', 'BIT', 'AMS', 'SWX', 'OSL', 'CPH', 
+      'HEL', 'ICE', 'WSE', 'BVLP', 'BIST', 'BSE', 'BUD', 'RIS',
+      'F', 'DU', 'STU', 'HAM', 'BE', 'MU', 'L'
+    ];
+    
+    const relevantTypes = ['ETF', 'Common Stock', 'Fund', 'Index'];
+    
+    // For ISIN searches, be less restrictive on filtering
+    const isISINQuery = query.match(/^[A-Z]{2}[A-Z0-9]{9}[0-9]$/);
+    
+    return data.filter(asset => {
+      console.log(`Checking asset: ${asset.Code} (${asset.Exchange}) - ${asset.Type} - ${asset.Name}`);
+      
+      // For ISIN queries, don't filter by query match since ISIN might not appear in name/code
+      if (isISINQuery) {
+        const isEuropean = europeanExchanges.includes(asset.Exchange);
+        const isRelevantType = relevantTypes.includes(asset.Type);
+        
+        console.log(`  ISIN search - European: ${isEuropean}, RelevantType: ${isRelevantType}`);
+        return isEuropean && isRelevantType;
+      }
+      
+      // For non-ISIN queries, use the original logic
+      const isEuropean = europeanExchanges.includes(asset.Exchange);
+      const isRelevantType = relevantTypes.includes(asset.Type);
+      const matchesQuery = asset.Name?.toLowerCase().includes(query.toLowerCase()) ||
+                          asset.Code?.toLowerCase().includes(query.toLowerCase()) ||
+                          asset.ISIN?.toLowerCase().includes(query.toLowerCase());
+      
+      console.log(`  European: ${isEuropean}, RelevantType: ${isRelevantType}, MatchesQuery: ${matchesQuery}`);
+      return isEuropean && isRelevantType && matchesQuery;
+    }).slice(0, 10); // Limit to top 10 results
   }
 
   /**
@@ -136,16 +206,22 @@ class EODHDClient {
     to: string,
     period = 'd' // d = daily, w = weekly, m = monthly
   ): Promise<EODHDPriceData[]> {
-    const ticker = `${symbol}.${exchange}`;
-    
-    const data = await this.makeRequest<EODHDPriceData[]>('/eod', {
-      s: ticker,
-      from,
-      to,
-      period
-    });
+    try {
+      const ticker = `${symbol}.${exchange}`;
+      console.log(`Getting historical prices for ${ticker} from ${from} to ${to}`);
+      
+      // EODHD API format: /eod/{TICKER} not /eod?s={TICKER}
+      const data = await this.makeRequest<EODHDPriceData[]>(`/eod/${ticker}`, {
+        from,
+        to,
+        period
+      });
 
-    return data || [];
+      return data || [];
+    } catch (error) {
+      console.error(`Failed to get historical prices for ${symbol}.${exchange}:`, error);
+      return [];
+    }
   }
 
   /**

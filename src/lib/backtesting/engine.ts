@@ -172,13 +172,20 @@ export class BacktestEngine {
     shares: Record<string, number>,
     startDate: Date
   ) {
+    const startDateStr = startDate.toISOString().split('T')[0];
+    console.log(`\nInitializing shares for ${startDateStr} with ${initialInvestment} initial investment:`);
+    
     for (const allocation of allocations) {
       const price = this.getPrice(priceDataMap[allocation.asset_id], startDate);
       if (price) {
         const investmentAmount = (allocation.percentage / 100) * initialInvestment;
         shares[allocation.asset_id] = investmentAmount / price;
+        console.log(`Asset ${allocation.asset_id}: ${allocation.percentage}% = €${investmentAmount} @ ${price} = ${shares[allocation.asset_id].toFixed(4)} shares`);
+      } else {
+        console.log(`Asset ${allocation.asset_id}: No price found for ${startDateStr}`);
       }
     }
+    console.log('Initial shares calculated:', shares);
   }
 
   private shouldRebalance(currentDate: Date, startDate: Date, frequency: string): boolean {
@@ -221,12 +228,27 @@ export class BacktestEngine {
     currentDate: Date
   ): number {
     let totalValue = 0;
+    const dateStr = currentDate.toISOString().split('T')[0];
 
     for (const [assetId, shareCount] of Object.entries(shares)) {
       const price = this.getPrice(priceDataMap[assetId], currentDate);
       if (price) {
-        totalValue += shareCount * price;
+        const assetValue = shareCount * price;
+        totalValue += assetValue;
+        // Debug: Log the first few calculations
+        if (dateStr === '2024-08-10' || dateStr === '2024-08-12') {
+          console.log(`${dateStr}: Asset ${assetId}: ${shareCount.toFixed(4)} shares @ ${price} = ${assetValue.toFixed(2)}`);
+        }
+      } else {
+        // Debug: Log missing prices
+        if (dateStr === '2024-08-10' || dateStr === '2024-08-12') {
+          console.log(`${dateStr}: Asset ${assetId}: No price found (${shareCount.toFixed(4)} shares)`);
+        }
       }
+    }
+
+    if (dateStr === '2024-08-10' || dateStr === '2024-08-12') {
+      console.log(`${dateStr}: Total portfolio value = ${totalValue.toFixed(2)}`);
     }
 
     return totalValue;
@@ -241,12 +263,21 @@ export class BacktestEngine {
       return exactMatch.close_price;
     }
 
-    // Find closest previous date
-    const sortedData = priceData
+    // Find closest previous date (for historical data)
+    const previousData = priceData
       .filter(p => p.date <= targetDateStr)
       .sort((a, b) => b.date.localeCompare(a.date));
     
-    return sortedData[0]?.close_price || null;
+    if (previousData.length > 0) {
+      return previousData[0].close_price;
+    }
+
+    // If no previous data, find the closest future date (for cases where start date is before data availability)
+    const futureData = priceData
+      .filter(p => p.date >= targetDateStr)
+      .sort((a, b) => a.date.localeCompare(b.date));
+    
+    return futureData[0]?.close_price || null;
   }
 
   private calculatePerformanceMetrics(

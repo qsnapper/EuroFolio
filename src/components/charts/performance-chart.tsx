@@ -71,6 +71,28 @@ export function PerformanceChart({
     return baseData;
   });
 
+  // Calculate Y-axis domain
+  const values = chartData.map(d => d.value);
+  const minValue = Math.min(...values);
+  const maxValue = Math.max(...values);
+  const padding = (maxValue - minValue) * 0.1; // 10% padding
+  const yAxisDomain = [Math.max(0, minValue - padding), maxValue + padding];
+
+  // Debug chart data
+  console.log('PerformanceChart data:', {
+    dataLength: data.length,
+    chartDataLength: chartData.length,
+    firstPoint: data[0],
+    lastPoint: data[data.length - 1],
+    firstChartPoint: chartData[0],
+    lastChartPoint: chartData[chartData.length - 1],
+    sampleValues: chartData.slice(0, 5).map(d => ({ date: d.date, value: d.value })),
+    minValue,
+    maxValue,
+    yAxisDomain,
+    initialInvestment
+  });
+
   const finalValue = data[data.length - 1]?.value || initialInvestment;
   const totalReturn = ((finalValue - initialInvestment) / initialInvestment) * 100;
 
@@ -145,6 +167,7 @@ export function PerformanceChart({
                 axisLine={false}
               />
               <YAxis 
+                domain={yAxisDomain}
                 tick={{ fontSize: 12 }}
                 tickLine={false}
                 axisLine={false}
@@ -174,12 +197,11 @@ export function PerformanceChart({
               
               {/* Portfolio performance line */}
               <Line
-                type="monotone"
                 dataKey="value"
-                stroke="hsl(var(--primary))"
-                strokeWidth={2}
+                stroke="#22c55e"
+                strokeWidth={3}
                 dot={false}
-                activeDot={{ r: 4, stroke: "hsl(var(--primary))", strokeWidth: 2 }}
+                connectNulls={false}
               />
             </LineChart>
           </ResponsiveContainer>

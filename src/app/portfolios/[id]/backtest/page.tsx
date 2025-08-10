@@ -24,7 +24,7 @@ import {
   Target,
   AlertTriangle
 } from 'lucide-react';
-import { formatCurrency, formatPercentage, formatDate } from '@/lib/utils';
+import { formatCurrency, formatPercentage, formatDecimalAsPercentage, formatDate } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import { PerformanceChart } from '@/components/charts/performance-chart';
 
@@ -44,6 +44,7 @@ export default function BacktestPage({ params }: BacktestPageProps) {
   
   // Active backtest result
   const [activeResult, setActiveResult] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState('configure');
 
   const runBacktest = useRunBacktest(portfolioId);
   const { data: historyData } = useBacktestHistory(portfolioId);
@@ -53,13 +54,25 @@ export default function BacktestPage({ params }: BacktestPageProps) {
 
   const handleRunBacktest = async () => {
     try {
+      console.log('Running backtest with params:', {
+        startDate,
+        endDate,
+        initialInvestment,
+        rebalanceFrequency
+      });
+      
       const result = await runBacktest.mutateAsync({
         startDate,
         endDate,
         initialInvestment,
         rebalanceFrequency: rebalanceFrequency as any
       });
+      
+      console.log('Backtest result received:', result);
+      console.log('Setting activeResult to:', result.data);
+      
       setActiveResult(result.data);
+      setActiveTab('results'); // Auto-switch to results tab
     } catch (error) {
       console.error('Backtest failed:', error);
     }
@@ -88,7 +101,7 @@ export default function BacktestPage({ params }: BacktestPageProps) {
       title={`Backtest: ${portfolio.name}`}
       description="Test your portfolio's historical performance"
     >
-      <Tabs defaultValue="configure" className="space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="configure">Configure Test</TabsTrigger>
           <TabsTrigger value="results" disabled={!activeResult}>Results</TabsTrigger>
@@ -233,7 +246,9 @@ export default function BacktestPage({ params }: BacktestPageProps) {
 
         {/* Results Tab */}
         <TabsContent value="results" className="space-y-6">
-          {activeResult && (
+          {(() => {
+            console.log('Results tab - activeResult:', activeResult);
+            return activeResult ? (
             <>
               {/* Key Metrics */}
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -244,7 +259,7 @@ export default function BacktestPage({ params }: BacktestPageProps) {
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold">
-                      {formatPercentage(activeResult.totalReturn)}
+                      {formatDecimalAsPercentage(activeResult.totalReturn)}
                     </div>
                     <p className="text-xs text-muted-foreground">
                       {formatCurrency(activeResult.finalValue - activeResult.initialInvestment)} profit
@@ -259,7 +274,7 @@ export default function BacktestPage({ params }: BacktestPageProps) {
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold">
-                      {formatPercentage(activeResult.annualizedReturn)}
+                      {formatDecimalAsPercentage(activeResult.annualizedReturn)}
                     </div>
                     <p className="text-xs text-muted-foreground">
                       Per year average
@@ -289,7 +304,7 @@ export default function BacktestPage({ params }: BacktestPageProps) {
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold text-destructive">
-                      {formatPercentage(-activeResult.maxDrawdown)}
+                      {formatDecimalAsPercentage(-activeResult.maxDrawdown)}
                     </div>
                     <p className="text-xs text-muted-foreground">
                       Worst decline
@@ -300,12 +315,20 @@ export default function BacktestPage({ params }: BacktestPageProps) {
 
               {/* Performance Chart */}
               {activeResult.performanceData && (
-                <PerformanceChart
-                  data={activeResult.performanceData}
-                  initialInvestment={activeResult.initialInvestment}
-                  title="Portfolio Performance Over Time"
-                  height={400}
-                />
+                <>
+                  {console.log('Rendering chart with data:', {
+                    dataLength: activeResult.performanceData.length,
+                    firstPoint: activeResult.performanceData[0],
+                    lastPoint: activeResult.performanceData[activeResult.performanceData.length - 1],
+                    initialInvestment: activeResult.initialInvestment
+                  })}
+                  <PerformanceChart
+                    data={activeResult.performanceData}
+                    initialInvestment={activeResult.initialInvestment}
+                    title="Portfolio Performance Over Time"
+                    height={400}
+                  />
+                </>
               )}
 
               {/* Additional Metrics */}
@@ -317,11 +340,11 @@ export default function BacktestPage({ params }: BacktestPageProps) {
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div>
                       <Label className="text-sm font-medium text-muted-foreground">Volatility</Label>
-                      <p className="text-xl font-bold">{formatPercentage(activeResult.volatility)}</p>
+                      <p className="text-xl font-bold">{formatDecimalAsPercentage(activeResult.volatility)}</p>
                     </div>
                     <div>
                       <Label className="text-sm font-medium text-muted-foreground">Win Rate</Label>
-                      <p className="text-xl font-bold">{formatPercentage(activeResult.winRate)}</p>
+                      <p className="text-xl font-bold">{formatDecimalAsPercentage(activeResult.winRate)}</p>
                     </div>
                     <div>
                       <Label className="text-sm font-medium text-muted-foreground">Positive Months</Label>
@@ -352,13 +375,18 @@ export default function BacktestPage({ params }: BacktestPageProps) {
                     <Progress value={activeResult.dataCompleteness * 100} className="w-full" />
                     <div className="flex justify-between text-sm text-muted-foreground">
                       <span>Data Completeness</span>
-                      <span>{formatPercentage(activeResult.dataCompleteness)}</span>
+                      <span>{formatDecimalAsPercentage(activeResult.dataCompleteness)}</span>
                     </div>
                   </div>
                 </CardContent>
               </Card>
             </>
-          )}
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <p>No backtest results yet. Run a backtest to see results here.</p>
+              </div>
+            );
+          })()}
         </TabsContent>
 
         {/* History Tab */}
@@ -391,7 +419,7 @@ export default function BacktestPage({ params }: BacktestPageProps) {
                           "text-lg font-bold",
                           result.total_return >= 0 ? "text-green-600" : "text-red-600"
                         )}>
-                          {formatPercentage(result.total_return)}
+                          {formatDecimalAsPercentage(result.total_return)}
                         </div>
                         <div className="text-sm text-muted-foreground">
                           Sharpe: {result.sharpe_ratio.toFixed(2)}

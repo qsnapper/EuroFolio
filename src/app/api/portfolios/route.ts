@@ -4,7 +4,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 // GET /api/portfolios - Get user's portfolios
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createSupabaseServerClient();
+    const supabase = await createSupabaseServerClient();
 
     // Check authentication
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
 // POST /api/portfolios - Create new portfolio
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createSupabaseServerClient();
+    const supabase = await createSupabaseServerClient();
 
     // Check authentication
     const { data: { user }, error: authError } = await supabase.auth.getUser();

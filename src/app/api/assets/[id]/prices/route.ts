@@ -19,7 +19,7 @@ export async function GET(
       );
     }
 
-    const supabase = createSupabaseServerClient();
+    const supabase = await createSupabaseServerClient();
 
     // Get asset information
     const { data: asset, error: assetError } = await supabase

@@ -48,6 +48,7 @@ export function AssetSearch({
   }, [searchQuery, debouncedSetQuery]);
 
   const { data, isLoading, error } = useAssetSearch(debouncedQuery);
+  
 
   const handleSelect = (asset: Asset) => {
     onSelect(asset);
@@ -79,7 +80,7 @@ export function AssetSearch({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[400px] p-0">
-        <Command>
+        <Command shouldFilter={false}>
           <div className="flex items-center border-b px-3">
             <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
             <CommandInput
@@ -113,8 +114,8 @@ export function AssetSearch({
               <CommandGroup>
                 {data.data.map((asset) => (
                   <CommandItem
-                    key={`${asset.symbol}-${asset.exchange}`}
-                    value={`${asset.symbol} ${asset.name} ${asset.exchange}`}
+                    key={`${asset.id || asset.symbol}-${asset.exchange}-${asset.currency}`}
+                    value={`${asset.symbol} ${asset.name} ${asset.exchange} ${asset.isin || ''}`}
                     onSelect={() => handleSelect(asset)}
                     className="cursor-pointer"
                   >
@@ -128,12 +129,15 @@ export function AssetSearch({
                           <Badge variant="secondary" className="text-xs">
                             {asset.type}
                           </Badge>
+                          <Badge variant="default" className="text-xs">
+                            {asset.currency}
+                          </Badge>
                         </div>
                         <div className="text-sm text-muted-foreground truncate">
                           {asset.name}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {asset.currency} • {asset.country}
+                          {asset.country}
                         </div>
                       </div>
                       <Check
@@ -147,6 +151,7 @@ export function AssetSearch({
                 ))}
               </CommandGroup>
             )}
+
 
             {data?.source && data.source.total > 0 && (
               <div className="border-t p-2 text-xs text-muted-foreground text-center">
