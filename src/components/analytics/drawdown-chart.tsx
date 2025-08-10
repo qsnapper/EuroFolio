@@ -110,7 +110,7 @@ export function DrawdownChart({
             <div className="flex justify-between gap-4">
               <span className="text-sm text-muted-foreground">Drawdown:</span>
               <span className={`text-sm font-medium ${data.drawdownPercentage < -0.1 ? 'text-red-600' : 'text-gray-600'}`}>
-                {formatDecimalAsPercentage(Math.abs(data.drawdownPercentage))}
+                {formatDecimalAsPercentage(Math.abs(data.drawdownPercentage / 100))}
               </span>
             </div>
             {data.drawdownDuration && (

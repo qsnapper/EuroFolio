@@ -61,10 +61,15 @@ export function PerformanceGrid({
     const yearNum = parseInt(year);
     const sortedMonths = months.sort((a, b) => a.month - b.month);
     
-    // Calculate yearly return from first to last month
-    const startValue = sortedMonths[0]?.value || 0;
-    const endValue = sortedMonths[sortedMonths.length - 1]?.value || 0;
-    const yearlyReturn = startValue > 0 ? (endValue - startValue) / startValue : 0;
+    // Calculate yearly return using compound monthly returns (correct method)
+    const yearlyReturn = sortedMonths.length > 0 ? 
+      sortedMonths.reduce((product, month) => product * (1 + month.return), 1) - 1 : 0;
+    
+    // For display purposes - use initial investment for first year, otherwise use start of year value
+    const startValue = yearNum === parseInt(data.startDate.substring(0, 4)) 
+      ? data.initialInvestment 
+      : sortedMonths[0]?.value || data.initialInvestment;
+    const endValue = sortedMonths[sortedMonths.length - 1]?.value || data.initialInvestment;
 
     const bestMonth = sortedMonths.reduce((max, month) => 
       month.return > (max?.return || -Infinity) ? month : max, null as MonthlyReturn | null);
