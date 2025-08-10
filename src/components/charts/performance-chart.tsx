@@ -78,20 +78,6 @@ export function PerformanceChart({
   const padding = (maxValue - minValue) * 0.1; // 10% padding
   const yAxisDomain = [Math.max(0, minValue - padding), maxValue + padding];
 
-  // Debug chart data
-  console.log('PerformanceChart data:', {
-    dataLength: data.length,
-    chartDataLength: chartData.length,
-    firstPoint: data[0],
-    lastPoint: data[data.length - 1],
-    firstChartPoint: chartData[0],
-    lastChartPoint: chartData[chartData.length - 1],
-    sampleValues: chartData.slice(0, 5).map(d => ({ date: d.date, value: d.value })),
-    minValue,
-    maxValue,
-    yAxisDomain,
-    initialInvestment
-  });
 
   const finalValue = data[data.length - 1]?.value || initialInvestment;
   const totalReturn = ((finalValue - initialInvestment) / initialInvestment) * 100;

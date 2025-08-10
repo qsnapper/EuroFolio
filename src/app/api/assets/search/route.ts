@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { eodhd } from '@/lib/eodhd/client';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
+import type { Asset } from '@/types';
 
 export async function GET(request: NextRequest) {
   try {
@@ -31,7 +32,7 @@ export async function GET(request: NextRequest) {
     const cachedResults = cachedAssets || [];
 
     // If we have less than 10 cached results, search EODHD API for more
-    let apiResults: any[] = [];
+    const apiResults: Asset[] = [];
     if (cachedResults.length < 10) {
       try {
         const searchResults = await eodhd.searchAssets(query);

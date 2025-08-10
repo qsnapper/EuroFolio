@@ -130,7 +130,7 @@ export class BacktestEngine {
     const performanceData: PerformancePoint[] = [];
     let portfolioValue = initialInvestment;
     let previousValue = initialInvestment;
-    let shares: Record<string, number> = {};
+    const shares: Record<string, number> = {};
 
     // Initialize shares based on initial allocation
     this.initializeShares(allocations, priceDataMap, initialInvestment, shares, dateRange[0]);

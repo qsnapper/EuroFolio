@@ -46,7 +46,7 @@ export default function PortfolioDetailPage() {
           <div className="text-center">
             <h2 className="text-2xl font-bold text-gray-900">Portfolio Not Found</h2>
             <p className="text-gray-600 mt-2">
-              The portfolio you're looking for doesn't exist or you don't have access to it.
+              The portfolio you&apos;re looking for doesn&apos;t exist or you don&apos;t have access to it.
             </p>
           </div>
           <Button onClick={() => router.push('/portfolios')} variant="outline">

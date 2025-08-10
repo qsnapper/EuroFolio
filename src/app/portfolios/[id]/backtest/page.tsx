@@ -8,7 +8,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useRunBacktest, useBacktestHistory } from '@/hooks/use-backtest';
@@ -20,11 +19,10 @@ import {
   TrendingDown, 
   BarChart3,
   Calendar,
-  DollarSign,
   Target,
   AlertTriangle
 } from 'lucide-react';
-import { formatCurrency, formatPercentage, formatDecimalAsPercentage, formatDate } from '@/lib/utils';
+import { formatCurrency, formatDecimalAsPercentage, formatDate } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import { PerformanceChart } from '@/components/charts/performance-chart';
 
@@ -54,22 +52,14 @@ export default function BacktestPage({ params }: BacktestPageProps) {
 
   const handleRunBacktest = async () => {
     try {
-      console.log('Running backtest with params:', {
-        startDate,
-        endDate,
-        initialInvestment,
-        rebalanceFrequency
-      });
       
       const result = await runBacktest.mutateAsync({
         startDate,
         endDate,
         initialInvestment,
-        rebalanceFrequency: rebalanceFrequency as any
+        rebalanceFrequency: rebalanceFrequency as 'NEVER' | 'MONTHLY' | 'QUARTERLY' | 'ANNUALLY'
       });
       
-      console.log('Backtest result received:', result);
-      console.log('Setting activeResult to:', result.data);
       
       setActiveResult(result.data);
       setActiveTab('results'); // Auto-switch to results tab
@@ -246,9 +236,7 @@ export default function BacktestPage({ params }: BacktestPageProps) {
 
         {/* Results Tab */}
         <TabsContent value="results" className="space-y-6">
-          {(() => {
-            console.log('Results tab - activeResult:', activeResult);
-            return activeResult ? (
+          {activeResult ? (
             <>
               {/* Key Metrics */}
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -315,20 +303,12 @@ export default function BacktestPage({ params }: BacktestPageProps) {
 
               {/* Performance Chart */}
               {activeResult.performanceData && (
-                <>
-                  {console.log('Rendering chart with data:', {
-                    dataLength: activeResult.performanceData.length,
-                    firstPoint: activeResult.performanceData[0],
-                    lastPoint: activeResult.performanceData[activeResult.performanceData.length - 1],
-                    initialInvestment: activeResult.initialInvestment
-                  })}
-                  <PerformanceChart
-                    data={activeResult.performanceData}
-                    initialInvestment={activeResult.initialInvestment}
-                    title="Portfolio Performance Over Time"
-                    height={400}
-                  />
-                </>
+                <PerformanceChart
+                  data={activeResult.performanceData}
+                  initialInvestment={activeResult.initialInvestment}
+                  title="Portfolio Performance Over Time"
+                  height={400}
+                />
               )}
 
               {/* Additional Metrics */}
@@ -381,12 +361,11 @@ export default function BacktestPage({ params }: BacktestPageProps) {
                 </CardContent>
               </Card>
             </>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                <p>No backtest results yet. Run a backtest to see results here.</p>
-              </div>
-            );
-          })()}
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <p>No backtest results yet. Run a backtest to see results here.</p>
+            </div>
+          )}
         </TabsContent>
 
         {/* History Tab */}
