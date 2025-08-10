@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase/client';
+import { env } from '@/lib/env';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle, XCircle } from 'lucide-react';
@@ -151,19 +152,19 @@ export default function TestConnectionPage() {
             <div className="flex justify-between">
               <span className="font-medium">NEXT_PUBLIC_SUPABASE_URL:</span>
               <code className="text-sm bg-muted px-2 py-1 rounded">
-                {process.env.NEXT_PUBLIC_SUPABASE_URL ? '✓ Set' : '✗ Missing'}
+                {env.NEXT_PUBLIC_SUPABASE_URL ? '✓ Set' : '✗ Missing'}
               </code>
             </div>
             <div className="flex justify-between">
               <span className="font-medium">NEXT_PUBLIC_SUPABASE_ANON_KEY:</span>
               <code className="text-sm bg-muted px-2 py-1 rounded">
-                {process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? '✓ Set' : '✗ Missing'}
+                {env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? '✓ Set' : '✗ Missing'}
               </code>
             </div>
             <div className="flex justify-between">
               <span className="font-medium">NEXT_PUBLIC_APP_NAME:</span>
               <code className="text-sm bg-muted px-2 py-1 rounded">
-                {process.env.NEXT_PUBLIC_APP_NAME || 'EuroFolio (default)'}
+                {env.NEXT_PUBLIC_APP_NAME || 'EuroFolio (default)'}
               </code>
             </div>
           </div>
