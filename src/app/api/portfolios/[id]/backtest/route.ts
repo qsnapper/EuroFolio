@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { backtestEngine, BacktestParams } from '@/lib/backtesting/engine';
+import { analyzeDrawdownPeriods, generateMonthlyReturns, calculateAdvancedMetrics } from '@/lib/analytics/performance-metrics';
 
 // POST /api/portfolios/[id]/backtest - Run backtest for portfolio
 export async function POST(
@@ -245,6 +246,11 @@ export async function POST(
       performanceDataLength: backtestResult.performanceData.length
     });
 
+    // Calculate advanced analytics for storage
+    const drawdownPeriods = analyzeDrawdownPeriods(backtestResult.performanceData);
+    const monthlyReturns = generateMonthlyReturns(backtestResult.performanceData);
+    const advancedMetrics = calculateAdvancedMetrics(backtestResult.performanceData, backtestResult.maxDrawdown);
+
     // Store backtest result in database
     const { data: savedResult, error: saveError } = await supabase
       .from('backtest_results')
@@ -263,7 +269,11 @@ export async function POST(
         worst_year: backtestResult.yearlyReturns.length > 0 ? 
           Math.min(...backtestResult.yearlyReturns.map(y => y.return)) : null,
         positive_months: backtestResult.positiveMonths,
-        negative_months: backtestResult.negativeMonths
+        negative_months: backtestResult.negativeMonths,
+        performance_data: backtestResult.performanceData,
+        monthly_returns: monthlyReturns,
+        drawdown_periods: drawdownPeriods,
+        advanced_metrics: advancedMetrics
       })
       .select()
       .single();
@@ -284,7 +294,10 @@ export async function POST(
         },
         assetsAnalyzed: assetsWithData,
         totalAssets: totalAssets,
-        dataCompleteness: assetsWithData / totalAssets
+        dataCompleteness: assetsWithData / totalAssets,
+        drawdownPeriods,
+        monthlyReturns,
+        advancedMetrics
       }
     });
 

@@ -34,6 +34,14 @@ interface BacktestHistoryResponse {
     volatility: number;
     sharpe_ratio: number;
     max_drawdown: number;
+    positive_months: number;
+    negative_months: number;
+    best_year?: number;
+    worst_year?: number;
+    performance_data?: any[];
+    monthly_returns?: any[];
+    drawdown_periods?: any[];
+    advanced_metrics?: any;
     created_at: string;
   }>;
   portfolio: {
