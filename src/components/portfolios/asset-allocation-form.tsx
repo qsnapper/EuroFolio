@@ -9,35 +9,49 @@ import { Badge } from '@/components/ui/badge';
 import { AssetSearch } from '@/components/assets/asset-search';
 import { X, Plus, AlertTriangle } from 'lucide-react';
 import { Asset } from '@/types';
-import { validateAllocations, formatPercentage, formatCurrency } from '@/lib/utils';
+import { validateAllocations, formatPercentage } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 
 export interface AssetAllocation {
   id: string;
   asset: Asset;
   percentage: number;
+  expense_ratio?: number;
 }
 
 interface AssetAllocationFormProps {
   allocations: AssetAllocation[];
   onAllocationsChange: (allocations: AssetAllocation[]) => void;
   className?: string;
+  showTER?: boolean;
 }
 
 export function AssetAllocationForm({ 
   allocations, 
   onAllocationsChange, 
-  className 
+  className,
+  showTER = false
 }: AssetAllocationFormProps) {
   const [totalPercentage, setTotalPercentage] = useState(0);
+  const [portfolioTER, setPortfolioTER] = useState(0);
   const [errors, setErrors] = useState<string[]>([]);
 
-  // Calculate total and validate whenever allocations change
+  // Calculate total, TER, and validate whenever allocations change
   useEffect(() => {
     const validation = validateAllocations(allocations);
     setTotalPercentage(validation.total);
     setErrors(validation.errors);
-  }, [allocations]);
+
+    // Calculate weighted portfolio TER
+    if (showTER) {
+      const weightedTER = allocations.reduce((total, allocation) => {
+        const ter = allocation.expense_ratio || allocation.asset.expense_ratio || 0;
+        // TER is already in percentage form (e.g., 0.12 for 0.12%), so we don't multiply by 100
+        return total + (ter * allocation.percentage / 100);
+      }, 0);
+      setPortfolioTER(weightedTER);
+    }
+  }, [allocations, showTER]);
 
   const addAllocation = () => {
     const newAllocation: AssetAllocation = {
@@ -90,6 +104,11 @@ export function AssetAllocationForm({
             <Badge variant={totalPercentage === 100 ? "default" : "secondary"}>
               {formatPercentage(totalPercentage)}
             </Badge>
+            {showTER && portfolioTER > 0 && (
+              <Badge variant="outline">
+                TER: {portfolioTER.toFixed(2)}%
+              </Badge>
+            )}
             {allocations.length > 1 && (
               <Button
                 type="button"
@@ -179,7 +198,7 @@ export function AssetAllocationForm({
                   className="w-full"
                 />
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className={cn("grid gap-3", showTER ? "grid-cols-3" : "grid-cols-2")}>
                   <div className="space-y-2">
                     <Label htmlFor={`percentage-${allocation.id}`}>
                       Allocation %
@@ -197,6 +216,32 @@ export function AssetAllocationForm({
                       placeholder="0.00"
                     />
                   </div>
+                  
+                  {showTER && (
+                    <div className="space-y-2">
+                      <Label htmlFor={`ter-${allocation.id}`}>
+                        TER %
+                      </Label>
+                      <Input
+                        id={`ter-${allocation.id}`}
+                        type="text"
+                        value={allocation.expense_ratio !== undefined ? allocation.expense_ratio.toString() : (allocation.asset.expense_ratio || '')}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          // Allow empty, numbers, decimal point, and comma
+                          if (value === '' || /^[0-9]*[.,]?[0-9]*$/.test(value)) {
+                            // Convert comma to dot for parsing
+                            const normalizedValue = value.replace(',', '.');
+                            const parsed = normalizedValue === '' ? undefined : parseFloat(normalizedValue);
+                            updateAllocation(allocation.id, {
+                              expense_ratio: isNaN(parsed || 0) ? undefined : parsed
+                            });
+                          }
+                        }}
+                        placeholder="0.12 or 0,12"
+                      />
+                    </div>
+                  )}
                   
                   {allocation.asset.currency && (
                     <div className="space-y-2">
@@ -244,7 +289,7 @@ export function AssetAllocationForm({
         {allocations.length > 0 && (
           <div className="pt-4 border-t">
             <h4 className="text-sm font-medium mb-2">Portfolio Summary</h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+            <div className={cn("grid gap-2 text-sm", showTER ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-1 sm:grid-cols-2")}>
               <div className="flex justify-between">
                 <span>Total Assets:</span>
                 <span className="font-medium">{allocations.length}</span>
@@ -258,6 +303,14 @@ export function AssetAllocationForm({
                   {formatPercentage(totalPercentage)}
                 </span>
               </div>
+              {showTER && (
+                <div className="flex justify-between">
+                  <span>Weighted TER:</span>
+                  <span className="font-medium">
+                    {portfolioTER > 0 ? `${portfolioTER.toFixed(2)}%` : '-'}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         )}

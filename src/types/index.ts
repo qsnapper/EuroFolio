@@ -11,6 +11,7 @@ export interface Profile {
   primary_currency: string;
   secondary_currency: string;
   locale: string;
+  is_admin: boolean;
   subscription_tier: 'FREE' | 'PREMIUM' | 'PRO';
   created_at: string;
   updated_at: string;
@@ -57,6 +58,7 @@ export interface PortfolioAllocation {
   portfolio_id: string;
   asset_id: string;
   percentage: number;
+  expense_ratio?: number;
   created_at: string;
 }
 

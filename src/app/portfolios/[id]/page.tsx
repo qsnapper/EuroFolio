@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { ArrowLeft, BarChart3, Settings, TrendingUp, Activity, Target, PieChart } from 'lucide-react';
 import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { Button } from '@/components/ui/button';
@@ -188,9 +189,11 @@ export default function PortfolioDetailPage() {
             </div>
           </div>
           <div className="flex items-center space-x-2">
-            <Button variant="outline" size="sm">
-              <Settings className="mr-2 h-4 w-4" />
-              Edit
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`/portfolios/${portfolio.id}/edit`}>
+                <Settings className="mr-2 h-4 w-4" />
+                Edit
+              </Link>
             </Button>
             <Button 
               size="sm"

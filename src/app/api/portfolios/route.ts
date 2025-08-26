@@ -23,13 +23,15 @@ export async function GET(request: NextRequest) {
         portfolio_allocations (
           id,
           percentage,
+          expense_ratio,
           assets (
             id,
             symbol,
             exchange,
             name,
             currency,
-            type
+            type,
+            expense_ratio
           )
         )
       `);
@@ -157,7 +159,8 @@ export async function POST(request: NextRequest) {
     const allocationInserts = allocations.map((allocation: any) => ({
       portfolio_id: portfolio.id,
       asset_id: allocation.asset_id,
-      percentage: allocation.percentage
+      percentage: allocation.percentage,
+      expense_ratio: allocation.expense_ratio || null
     }));
 
     const { error: allocationError } = await supabase
@@ -182,13 +185,15 @@ export async function POST(request: NextRequest) {
         portfolio_allocations (
           id,
           percentage,
+          expense_ratio,
           assets (
             id,
             symbol,
             exchange,
             name,
             currency,
-            type
+            type,
+            expense_ratio
           )
         )
       `)

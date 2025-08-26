@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,32 +16,87 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { AssetAllocationForm, AssetAllocation } from './asset-allocation-form';
-import { Loader2, Save, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Save, Eye, EyeOff, ArrowLeft, Star } from 'lucide-react';
 import { validateAllocations } from '@/lib/utils';
+import { Portfolio } from '@/types';
+import { useAuth } from '@/context/auth-context';
 
-export function CreatePortfolioForm() {
+interface EditPortfolioFormProps {
+  portfolioId: string;
+}
+
+export function EditPortfolioForm({ portfolioId }: EditPortfolioFormProps) {
   const router = useRouter();
+  const { profile } = useAuth();
+  const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
-  // Basic portfolio info
+  // Portfolio data
+  const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
+  
+  // Form fields
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [rebalanceFrequency, setRebalanceFrequency] = useState<string>('ANNUALLY');
   const [rebalanceThreshold, setRebalanceThreshold] = useState(5.0);
   const [isPublic, setIsPublic] = useState(false);
-  
-  // Allocations
-  const [allocations, setAllocations] = useState<AssetAllocation[]>([{
-    id: crypto.randomUUID(),
-    asset: {} as any,
-    percentage: 0
-  }]);
+  const [isPopular, setIsPopular] = useState(false);
+  const [allocations, setAllocations] = useState<AssetAllocation[]>([]);
+
+  const isAdmin = profile?.is_admin || false;
+
+  // Load portfolio data
+  useEffect(() => {
+    const loadPortfolio = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        const response = await fetch(`/api/portfolios/${portfolioId}`);
+        if (!response.ok) {
+          throw new Error('Failed to load portfolio');
+        }
+
+        const { data: portfolioData } = await response.json();
+        setPortfolio(portfolioData);
+
+        // Populate form fields
+        setName(portfolioData.name);
+        setDescription(portfolioData.description || '');
+        setRebalanceFrequency(portfolioData.rebalance_frequency);
+        setRebalanceThreshold(portfolioData.rebalance_threshold);
+        setIsPublic(portfolioData.is_public);
+        setIsPopular(portfolioData.is_popular);
+
+        // Convert portfolio allocations to form format
+        if (portfolioData.portfolio_allocations) {
+          const formAllocations: AssetAllocation[] = portfolioData.portfolio_allocations.map((allocation: any) => ({
+            id: allocation.id,
+            asset: allocation.assets,
+            percentage: allocation.percentage,
+            expense_ratio: allocation.expense_ratio || allocation.assets?.expense_ratio
+          }));
+          setAllocations(formAllocations);
+        }
+
+      } catch (error) {
+        console.error('Error loading portfolio:', error);
+        setError(error instanceof Error ? error.message : 'Failed to load portfolio');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadPortfolio();
+  }, [portfolioId]);
 
   const validation = validateAllocations(allocations);
   const canSubmit = name.trim() && 
                    validation.isValid && 
                    allocations.every(a => a.asset.id) &&
-                   !isSubmitting;
+                   !isSubmitting &&
+                   !isLoading;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,6 +104,7 @@ export function CreatePortfolioForm() {
     if (!canSubmit) return;
     
     setIsSubmitting(true);
+    setError(null);
     
     try {
       const portfolioData = {
@@ -57,6 +113,7 @@ export function CreatePortfolioForm() {
         rebalance_frequency: rebalanceFrequency,
         rebalance_threshold: rebalanceThreshold,
         is_public: isPublic,
+        is_popular: isAdmin ? isPopular : undefined, // Only admins can set popular
         allocations: allocations.map(allocation => ({
           asset_id: allocation.asset.id,
           percentage: allocation.percentage,
@@ -64,8 +121,8 @@ export function CreatePortfolioForm() {
         }))
       };
 
-      const response = await fetch('/api/portfolios', {
-        method: 'POST',
+      const response = await fetch(`/api/portfolios/${portfolioId}`, {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -74,31 +131,75 @@ export function CreatePortfolioForm() {
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || 'Failed to create portfolio');
+        throw new Error(error.error || 'Failed to update portfolio');
       }
 
-      const result = await response.json();
-      
-      // Redirect to portfolio detail page or portfolios list
-      router.push(`/portfolios/${result.data.id}`);
+      // Redirect back to portfolio detail page
+      router.push(`/portfolios/${portfolioId}`);
       
     } catch (error) {
-      console.error('Portfolio creation error:', error);
-      // TODO: Add proper error handling/toast notification
-      alert(error instanceof Error ? error.message : 'Failed to create portfolio');
+      console.error('Portfolio update error:', error);
+      setError(error instanceof Error ? error.message : 'Failed to update portfolio');
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-destructive mb-4">{error}</p>
+        <Button 
+          variant="outline" 
+          onClick={() => router.back()}
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Go Back
+        </Button>
+      </div>
+    );
+  }
+
+  if (!portfolio) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-muted-foreground mb-4">Portfolio not found</p>
+        <Button 
+          variant="outline" 
+          onClick={() => router.back()}
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Go Back
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Error Display */}
+      {error && (
+        <Card className="border-destructive">
+          <CardContent className="pt-6">
+            <p className="text-destructive">{error}</p>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Basic Information */}
       <Card>
         <CardHeader>
           <CardTitle>Basic Information</CardTitle>
           <CardDescription>
-            Set up the basic details for your portfolio
+            Update the basic details for your portfolio
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -114,25 +215,41 @@ export function CreatePortfolioForm() {
               />
             </div>
             
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="isPublic"
-                checked={isPublic}
-                onCheckedChange={setIsPublic}
-              />
-              <Label htmlFor="isPublic" className="flex items-center gap-2">
-                {isPublic ? (
-                  <>
-                    <Eye className="h-4 w-4" />
-                    Public Portfolio
-                  </>
-                ) : (
-                  <>
-                    <EyeOff className="h-4 w-4" />
-                    Private Portfolio
-                  </>
-                )}
-              </Label>
+            <div className="space-y-3">
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="isPublic"
+                  checked={isPublic}
+                  onCheckedChange={setIsPublic}
+                />
+                <Label htmlFor="isPublic" className="flex items-center gap-2">
+                  {isPublic ? (
+                    <>
+                      <Eye className="h-4 w-4" />
+                      Public Portfolio
+                    </>
+                  ) : (
+                    <>
+                      <EyeOff className="h-4 w-4" />
+                      Private Portfolio
+                    </>
+                  )}
+                </Label>
+              </div>
+              
+              {isAdmin && isPublic && (
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="isPopular"
+                    checked={isPopular}
+                    onCheckedChange={setIsPopular}
+                  />
+                  <Label htmlFor="isPopular" className="flex items-center gap-2">
+                    <Star className="h-4 w-4" />
+                    Mark as Popular
+                  </Label>
+                </div>
+              )}
             </div>
           </div>
 
@@ -201,6 +318,7 @@ export function CreatePortfolioForm() {
       <AssetAllocationForm
         allocations={allocations}
         onAllocationsChange={setAllocations}
+        showTER={true}
       />
 
       {/* Action Buttons */}
@@ -208,7 +326,7 @@ export function CreatePortfolioForm() {
         <div className="text-sm text-muted-foreground">
           {!validation.isValid && (
             <span className="text-destructive">
-              Please fix allocation issues before creating portfolio
+              Please fix allocation issues before saving changes
             </span>
           )}
         </div>
@@ -220,6 +338,7 @@ export function CreatePortfolioForm() {
             onClick={() => router.back()}
             disabled={isSubmitting}
           >
+            <ArrowLeft className="mr-2 h-4 w-4" />
             Cancel
           </Button>
           
@@ -231,12 +350,12 @@ export function CreatePortfolioForm() {
             {isSubmitting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Creating...
+                Saving...
               </>
             ) : (
               <>
                 <Save className="mr-2 h-4 w-4" />
-                Create Portfolio
+                Save Changes
               </>
             )}
           </Button>
