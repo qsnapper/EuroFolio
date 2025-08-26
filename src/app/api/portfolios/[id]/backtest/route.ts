@@ -104,12 +104,57 @@ export async function POST(
         continue;
       }
 
-      if (!priceData || priceData.length === 0) {
-        // Try to fetch from external API if no cached data
-        const asset = portfolio.portfolio_allocations.find((a: any) => a.asset_id === assetId)?.assets;
-        if (asset) {
-          console.log(`Fetching price data from EODHD API for ${asset.symbol}.${asset.exchange}...`);
+      let finalPriceData = priceData || [];
+      
+      // Check if we have complete data coverage for the requested date range
+      const asset = portfolio.portfolio_allocations.find((a: any) => a.asset_id === assetId)?.assets;
+      if (asset) {
+        const requestedStart = new Date(startDate);
+        const requestedEnd = new Date(endDate);
+        
+        let missingRanges: { from: string; to: string }[] = [];
+        
+        if (finalPriceData.length === 0) {
+          // No data at all - fetch entire range
+          missingRanges.push({ from: startDate, to: endDate });
+          console.log(`No existing data for ${asset.symbol}, fetching entire range: ${startDate} to ${endDate}`);
+        } else {
+          // Check for gaps in data coverage
+          const existingDates = finalPriceData.map(p => new Date(p.date));
+          const earliestData = new Date(Math.min(...existingDates.map(d => d.getTime())));
+          const latestData = new Date(Math.max(...existingDates.map(d => d.getTime())));
+          
+          console.log(`Existing data for ${asset.symbol}: ${earliestData.toISOString().split('T')[0]} to ${latestData.toISOString().split('T')[0]}`);
+          console.log(`Requested range: ${startDate} to ${endDate}`);
+          
+          // Check if we need data before the earliest existing data
+          if (requestedStart < earliestData) {
+            const gapEnd = new Date(earliestData);
+            gapEnd.setDate(gapEnd.getDate() - 1); // Don't overlap with existing data
+            missingRanges.push({ 
+              from: startDate, 
+              to: gapEnd.toISOString().split('T')[0] 
+            });
+            console.log(`Missing early data: ${startDate} to ${gapEnd.toISOString().split('T')[0]}`);
+          }
+          
+          // Check if we need data after the latest existing data
+          if (requestedEnd > latestData) {
+            const gapStart = new Date(latestData);
+            gapStart.setDate(gapStart.getDate() + 1); // Don't overlap with existing data
+            missingRanges.push({ 
+              from: gapStart.toISOString().split('T')[0], 
+              to: endDate 
+            });
+            console.log(`Missing recent data: ${gapStart.toISOString().split('T')[0]} to ${endDate}`);
+          }
+        }
+        
+        // Fetch missing data ranges from EODHD API
+        for (const range of missingRanges) {
           try {
+            console.log(`Fetching missing price data from EODHD API for ${asset.symbol}.${asset.exchange} from ${range.from} to ${range.to}...`);
+            
             // Import EODHD client
             const { eodhd } = await import('@/lib/eodhd/client');
             
@@ -117,12 +162,12 @@ export async function POST(
             const historicalPrices = await eodhd.getHistoricalPrices(
               asset.symbol,
               asset.exchange,
-              startDate,
-              endDate
+              range.from,
+              range.to
             );
             
             if (historicalPrices && historicalPrices.length > 0) {
-              console.log(`Fetched ${historicalPrices.length} price points for ${asset.symbol}`);
+              console.log(`Fetched ${historicalPrices.length} price points for ${asset.symbol} (${range.from} to ${range.to})`);
               
               // Store in database for future use
               const priceInserts = historicalPrices.map(price => ({
@@ -150,7 +195,7 @@ export async function POST(
                 console.log(`Stored ${priceInserts.length} price points for ${asset.symbol}`);
               }
               
-              // Convert to our PriceData format and add to map
+              // Convert to our PriceData format and merge with existing data
               const convertedPrices = historicalPrices.map(price => ({
                 asset_id: assetId,
                 date: price.date,
@@ -158,23 +203,24 @@ export async function POST(
                 adjusted_close: price.adjusted_close || price.close
               }));
               
-              console.log(`Converted ${convertedPrices.length} prices for asset ${assetId}`);
-              if (convertedPrices.length > 0) {
-                console.log(`Sample prices: ${convertedPrices[0].close_price} -> ${convertedPrices[convertedPrices.length-1].close_price}`);
-              }
+              // Merge new data with existing data and sort by date
+              finalPriceData = [...finalPriceData, ...convertedPrices]
+                .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
               
-              priceDataMap[assetId] = convertedPrices;
+              console.log(`Merged data: ${finalPriceData.length} total price points for ${asset.symbol}`);
+              
             } else {
-              console.warn(`No historical data available for ${asset.symbol}.${asset.exchange}`);
+              console.warn(`No historical data available for ${asset.symbol}.${asset.exchange} in range ${range.from} to ${range.to}`);
             }
           } catch (apiError) {
-            console.error(`Error fetching price data for ${asset.symbol}:`, apiError);
+            console.error(`Error fetching price data for ${asset.symbol} (${range.from} to ${range.to}):`, apiError);
           }
         }
-        continue;
       }
 
-      priceDataMap[assetId] = priceData;
+      if (finalPriceData.length > 0) {
+        priceDataMap[assetId] = finalPriceData;
+      }
     }
 
     // Check if we have sufficient price data
@@ -315,7 +361,7 @@ export async function POST(
 
 // GET /api/portfolios/[id]/backtest - Get backtest history for portfolio
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
