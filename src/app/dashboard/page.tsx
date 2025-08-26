@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { usePortfolios } from '@/hooks/use-portfolios';
+import { useDocumentTitle } from '@/hooks/use-document-title';
 import { formatDate } from '@/lib/utils';
 import Link from 'next/link';
 import { 
@@ -23,6 +24,8 @@ export default function DashboardPage() {
   const { user, profile } = useAuth();
   const { data: portfoliosData, isLoading: portfoliosLoading } = usePortfolios(false, false);
   const { data: popularPortfoliosData, isLoading: popularLoading } = usePortfolios(false, true);
+  
+  useDocumentTitle('Dashboard - EuroFolio');
 
   const portfolios = portfoliosData?.data || [];
   const popularPortfolios = popularPortfoliosData?.data || [];

@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle, XCircle } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
+import { useDocumentTitle } from '@/hooks/use-document-title';
 
 interface ConnectionStatus {
   supabase: boolean;
@@ -15,6 +16,8 @@ interface ConnectionStatus {
 }
 
 export default function TestConnectionPage() {
+  useDocumentTitle('Test Connection - EuroFolio');
+  
   const [status, setStatus] = useState<ConnectionStatus>({
     supabase: false,
     database: false,

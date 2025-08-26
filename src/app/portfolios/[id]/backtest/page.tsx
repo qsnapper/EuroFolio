@@ -12,6 +12,7 @@ import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useRunBacktest, useBacktestHistory } from '@/hooks/use-backtest';
 import { usePortfolios } from '@/hooks/use-portfolios';
+import { useDocumentTitle } from '@/hooks/use-document-title';
 import { 
   Play, 
   Loader2, 
@@ -49,6 +50,8 @@ export default function BacktestPage({ params }: BacktestPageProps) {
   const { data: portfoliosData } = usePortfolios();
 
   const portfolio = portfoliosData?.data.find(p => p.id === portfolioId);
+  
+  useDocumentTitle(portfolio ? `Backtest: ${portfolio.name} - EuroFolio` : 'Backtest Portfolio - EuroFolio');
 
   const handleRunBacktest = async () => {
     try {

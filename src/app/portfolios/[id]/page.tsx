@@ -17,6 +17,7 @@ import { PerformanceGrid } from '@/components/analytics/performance-grid';
 import { PerformanceChart } from '@/components/charts/performance-chart';
 import { usePortfolios } from '@/hooks/use-portfolios';
 import { useBacktestHistory } from '@/hooks/use-backtest';
+import { useDocumentTitle } from '@/hooks/use-document-title';
 import { getRiskGrade, analyzeDrawdownPeriods, generateMonthlyReturns, calculateAdvancedMetrics } from '@/lib/analytics/performance-metrics';
 import { formatCurrency, formatDecimalAsPercentage, cn } from '@/lib/utils';
 import type { Portfolio } from '@/types';
@@ -29,6 +30,8 @@ export default function PortfolioDetailPage() {
   const { data: portfoliosResponse, isLoading, error } = usePortfolios();
   const { data: backtestHistory } = useBacktestHistory(portfolioId);
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
+  
+  useDocumentTitle(portfolio ? `${portfolio.name} - Portfolio Details - EuroFolio` : 'Portfolio Details - EuroFolio');
 
   useEffect(() => {
     if (portfoliosResponse?.data) {

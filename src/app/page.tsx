@@ -11,6 +11,13 @@ import {
   CheckCircle,
   ArrowRight
 } from 'lucide-react';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'EuroFolio - European Portfolio Analytics & Backtesting Platform',
+  description: 'Backtest investment strategies, analyze portfolio performance, and optimize your investments with comprehensive analytics designed for European investors. Start free today.',
+  keywords: ['portfolio backtesting', 'European investing', 'ETF analysis', 'investment analytics', 'portfolio optimization', 'stock analysis'],
+};
 
 export default function HomePage() {
   return (

@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { usePortfolios, useDeletePortfolio } from '@/hooks/use-portfolios';
+import { useDocumentTitle } from '@/hooks/use-document-title';
 import { 
   Plus, 
   MoreVertical, 
@@ -33,6 +34,8 @@ export default function PortfoliosPage() {
   const [view, setView] = useState<'my' | 'popular'>('my');
   const { data: portfoliosData, isLoading, error } = usePortfolios(false, view === 'popular');
   const deletePortfolio = useDeletePortfolio();
+  
+  useDocumentTitle(view === 'popular' ? 'Popular Portfolios - EuroFolio' : 'My Portfolios - EuroFolio');
 
   const portfolios = portfoliosData?.data || [];
 

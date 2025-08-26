@@ -2,6 +2,16 @@ import { Suspense } from 'react';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { EditPortfolioForm } from '@/components/portfolios/edit-portfolio-form';
 import { Loader2 } from 'lucide-react';
+import type { Metadata } from 'next';
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  
+  return {
+    title: 'Edit Portfolio - EuroFolio',
+    description: 'Edit your portfolio allocation, settings, and strategy configuration.',
+  };
+}
 
 interface EditPortfolioPageProps {
   params: Promise<{ id: string }>;

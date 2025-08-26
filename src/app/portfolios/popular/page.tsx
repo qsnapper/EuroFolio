@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { usePortfolios } from '@/hooks/use-portfolios';
+import { useDocumentTitle } from '@/hooks/use-document-title';
 import { 
   TrendingUp,
   Eye,
@@ -20,6 +21,8 @@ import { useState } from 'react';
 export default function PopularPortfoliosPage() {
   const { data: portfoliosData, isLoading, error } = usePortfolios(false, true);
   const [copyingId, setCopyingId] = useState<string | null>(null);
+  
+  useDocumentTitle('Popular Portfolios - EuroFolio');
 
   const portfolios = portfoliosData?.data || [];
 
